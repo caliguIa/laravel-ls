@@ -14,6 +14,7 @@ import (
 	appProvider "github.com/laravel-ls/laravel-ls/laravel/providers/app"
 	assetsProvider "github.com/laravel-ls/laravel-ls/laravel/providers/assets"
 	configProvider "github.com/laravel-ls/laravel-ls/laravel/providers/config"
+	eloquentProvider "github.com/laravel-ls/laravel-ls/laravel/providers/eloquent"
 	envProvider "github.com/laravel-ls/laravel-ls/laravel/providers/env"
 	routeProvider "github.com/laravel-ls/laravel-ls/laravel/providers/route"
 	viewProvider "github.com/laravel-ls/laravel-ls/laravel/providers/view"
@@ -90,12 +91,13 @@ func run(cmd *cobra.Command, args []string) error {
 		appProvider.NewProvider(),
 		configProvider.NewProvider(),
 		routeProvider.NewProvider(),
+		eloquentProvider.NewProvider(),
 	)
 
 	defer treesitter.FreeQueryCache()
 
 	log.Info("Starting laravel-ls")
-	server := server.NewServer(providerManager)
+	server := server.NewServer(providerManager, cfg)
 	if err := server.Run(context.Background(), transport.NewStdio()); err != nil {
 		return err
 	}
@@ -111,6 +113,7 @@ func must(err error) {
 func bindFlagsToConfig(flags *pflag.FlagSet) {
 	must(viper.BindPFlag("log.filename", flags.Lookup("log")))
 	must(viper.BindPFlag("log.level", flags.Lookup("log-level")))
+	must(viper.BindPFlag("database.host", flags.Lookup("db-host")))
 }
 
 func Run() int {
@@ -124,6 +127,7 @@ func Run() int {
 	cmd.PersistentFlags().StringVar(&basePath, "basePath", "~/.local/laravel-ls", "base path")
 	cmd.PersistentFlags().String("log", "log", "Log file, relative to basePath")
 	cmd.PersistentFlags().String("log-level", "info", fmt.Sprintf("Logging level, one of: %v", log.AllLevels))
+	cmd.PersistentFlags().String("db-host", "", "Override DB_HOST for PHP introspection (e.g. when DB runs on a non-default Docker address)")
 	cmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "%s" .Version}}` + "\n")
 
 	bindFlagsToConfig(cmd.PersistentFlags())

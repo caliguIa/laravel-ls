@@ -20,6 +20,9 @@ type Process interface {
 // PHPProcess represents a PHP execution process with configurable arguments.
 type PHPProcess struct {
 	Args []string
+	// Env holds extra environment variables (in "KEY=VALUE" form) to inject
+	// into the PHP child process, overriding any inherited values.
+	Env []string
 }
 
 // NewPHPProcess creates a new PHPProcess instance with the given arguments.
@@ -71,6 +74,11 @@ func (proc PHPProcess) Exec(workingDir string, code []byte) (io.Reader, error) {
 	cmd.Dir = workingDir
 	cmd.Stdout = outBuf
 	cmd.Stderr = errBuf
+
+	// Merge extra env vars on top of the inherited environment.
+	if len(proc.Env) > 0 {
+		cmd.Env = append(os.Environ(), proc.Env...)
+	}
 
 	if cmdErr := cmd.Run(); cmdErr != nil {
 		err := errors.New(errBuf.String())

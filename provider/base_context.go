@@ -10,6 +10,7 @@ import (
 
 type BaseContext struct {
 	Logger    *log.Entry
+	Filename  string
 	File      *parser.File
 	FileCache *cache.FileCache
 	Project   *project.Project

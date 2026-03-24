@@ -10,3 +10,6 @@ var configScript []byte
 
 //go:embed scripts/routes_gen.php
 var routeScript []byte
+
+//go:embed scripts/models_gen.php
+var modelScript []byte

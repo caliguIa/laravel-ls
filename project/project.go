@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"fmt"
 	"path"
 
 	"github.com/laravel-ls/laravel-ls/runtime"
@@ -10,6 +11,14 @@ import (
 )
 
 var ErrNotAnLaravelProject = errors.New("not a laravel project")
+
+// Options configure optional behaviour when creating a Project.
+type Options struct {
+	// DBHost, when non-empty, overrides the DB_HOST environment variable
+	// passed to the PHP introspection process. Useful when the database is
+	// exposed on a non-default loopback address (e.g. Docker bind mounts).
+	DBHost string
+}
 
 // Project encapsulates the runtime details needed to
 // execute PHP code and retrieve information from a Laravel project.
@@ -20,7 +29,7 @@ type Project struct {
 
 // New initializes a new project by
 // analyzing the project in rootPath and finding a suitable php process.
-func New(rootPath string) (*Project, error) {
+func New(rootPath string, opts Options) (*Project, error) {
 	if !utils.FileExists(path.Join(rootPath, "bootstrap", "app.php")) {
 		return nil, ErrNotAnLaravelProject
 	}
@@ -28,6 +37,11 @@ func New(rootPath string) (*Project, error) {
 	process, err := runtime.FindPHPProcess(rootPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// Inject env overrides into the PHP process when requested.
+	if opts.DBHost != "" {
+		process.Env = append(process.Env, fmt.Sprintf("DB_HOST=%s", opts.DBHost))
 	}
 
 	return &Project{
@@ -59,4 +73,9 @@ func (project Project) Routes() (repository.RouteRepository, error) {
 // AppBindings retrieves the application bindings repository in the project
 func (project Project) AppBindings() (repository.AppRepository, error) {
 	return runtime.CallScript(project.process, project.rootPath, appScript, repository.AppRepository{})
+}
+
+// Models retrieves the Eloquent model repository in the project
+func (project Project) Models() (repository.ModelRepository, error) {
+	return runtime.CallScript(project.process, project.rootPath, modelScript, repository.ModelRepository{})
 }

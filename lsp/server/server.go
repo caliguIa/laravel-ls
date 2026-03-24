@@ -14,6 +14,7 @@ import (
 	"github.com/laravel-ls/protocol"
 	"github.com/laravel-ls/uri"
 
+	"github.com/laravel-ls/laravel-ls/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/sourcegraph/jsonrpc2"
 )
@@ -36,12 +37,16 @@ type Server struct {
 
 	// config is parsed from initializationOptions during the initialize handshake.
 	config LSPConfig
+
+	// appConfig holds the application-level configuration (from config file / flags).
+	appConfig config.Config
 }
 
-func NewServer(providerManager *provider.Manager) *Server {
+func NewServer(providerManager *provider.Manager, appConfig config.Config) *Server {
 	return &Server{
 		cache:           cache.NewFileCache(),
 		providerManager: providerManager,
+		appConfig:       appConfig,
 	}
 }
 
@@ -55,6 +60,12 @@ func validateURI(input string) (string, error) {
 	}
 
 	return u.Filename(), nil
+}
+
+// filenameOrEmpty resolves a URI to a local filename, returning "" on error.
+func filenameOrEmpty(input string) string {
+	filename, _ := validateURI(input)
+	return filename
 }
 
 func (s *Server) HandleTextDocumentCodeAction(params protocol.CodeActionParams) ([]protocol.CodeAction, error) {
@@ -72,6 +83,7 @@ func (s *Server) HandleTextDocumentCodeAction(params protocol.CodeActionParams) 
 	s.providerManager.CodeAction(provider.CodeActionContext{
 		BaseContext: provider.BaseContext{
 			Logger:    log.WithField("module", "CodeAction"),
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			File:      file,
 			FileCache: s.cache,
 		},
@@ -101,6 +113,7 @@ func (s *Server) HandleTextDocumentCompletion(params protocol.CompletionParams) 
 	context := provider.CompletionContext{
 		BaseContext: provider.BaseContext{
 			Logger:    log.WithField("module", "Definition"),
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			File:      file,
 			FileCache: s.cache,
 		},
@@ -132,6 +145,7 @@ func (s *Server) HandleTextDocumentHover(params protocol.HoverParams) (protocol.
 	s.providerManager.Hover(provider.HoverContext{
 		BaseContext: provider.BaseContext{
 			Logger:    log.WithField("module", "Definition"),
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			File:      file,
 			FileCache: s.cache,
 		},
@@ -169,6 +183,7 @@ func (s *Server) HandleTextDocumentDiagnostic(params protocol.DocumentDiagnostic
 	s.providerManager.Diagnostics(provider.DiagnosticContext{
 		BaseContext: provider.BaseContext{
 			Logger:    log.WithField("module", "diagnostic"),
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			File:      file,
 			FileCache: s.cache,
 		},
@@ -211,6 +226,7 @@ func (s *Server) HandleTextDocumentDefinition(params protocol.DefinitionParams) 
 	context := provider.DefinitionContext{
 		BaseContext: provider.BaseContext{
 			Logger:    logger,
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			FileCache: s.cache,
 			File:      file,
 		},
@@ -325,6 +341,7 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.In
 		Logger:    log.WithField("module", "Initialize"),
 		RootPath:  rootPath,
 		FileCache: s.cache,
+		Config:    s.appConfig,
 	})
 
 	// Respond with capabilities
@@ -369,6 +386,7 @@ func (s *Server) HandleTextDocumentInlayHint(params protocol.InlayHintParams) ([
 	s.providerManager.InlayHints(provider.InlayHintContext{
 		BaseContext: provider.BaseContext{
 			Logger:    log.WithField("module", "InlayHint"),
+			Filename:  filenameOrEmpty(params.TextDocument.URI),
 			File:      file,
 			FileCache: s.cache,
 		},

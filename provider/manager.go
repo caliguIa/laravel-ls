@@ -30,7 +30,9 @@ func NewManager(providers ...Provider) *Manager {
 func (m *Manager) Init(ctx InitContext) {
 	var err error
 
-	m.project, err = project.New(ctx.RootPath)
+	m.project, err = project.New(ctx.RootPath, project.Options{
+		DBHost: ctx.Config.Database.Host,
+	})
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to find binary")
 	}
